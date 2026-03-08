@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="shortcut icon" href="favicon.svg">
 <title>Stress Maze</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -15,7 +17,7 @@
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
-    overflow-x: hidden;
+    width: 100%;
   }
 
   header {
@@ -94,12 +96,21 @@
 
   #game-container {
     position: relative;
-    touch-action: none;
-    padding: 4px 0;
+    width: min(100%, 1200px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y pinch-zoom;
+    padding: 8px 16px 10px;
+    margin: 0 auto;
+    scrollbar-width: thin;
   }
 
   canvas {
     display: block;
+    margin: 0 auto;
+    touch-action: pan-x pan-y pinch-zoom;
   }
 
   #message {
@@ -174,6 +185,63 @@
     line-height: 1.6;
     letter-spacing: 0.2px;
   }
+
+  #legend {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 0 16px 18px;
+    color: rgba(255,255,255,0.48);
+    font-size: 0.68rem;
+    letter-spacing: 0.2px;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 16px;
+    padding: 0 6px;
+    border-radius: 100px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: rgba(255,255,255,0.92);
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.32);
+  }
+
+  @media (max-width: 640px) {
+    header {
+      padding: 16px 14px 8px;
+    }
+
+    h1 {
+      font-size: 1rem;
+      letter-spacing: 3px;
+    }
+
+    #score-display {
+      padding: 6px 12px;
+    }
+
+    #message {
+      padding: 4px 14px;
+    }
+
+    #controls {
+      padding-top: 6px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -203,6 +271,12 @@
 <div id="instructions">
   Tap hexagons to trace a path from the left edge to the right edge.
   Only follow words that match the stress pattern shown above.
+</div>
+
+<div id="legend" aria-label="Legend">
+  <span class="legend-item"><span class="legend-badge">N.</span> Noun stress</span>
+  <span class="legend-item"><span class="legend-badge">V.</span> Verb stress</span>
+  <span class="legend-item"><span class="legend-badge">ADJ.</span> Adjective stress</span>
 </div>
 
 <script>
@@ -361,10 +435,18 @@ const WORD_CLASS = {
 // ============================================================
 const COLS = 5;
 const ROWS = 5;
-const HEX_SIZE = 52; // radius of hex
-const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
-const HEX_HEIGHT = 2 * HEX_SIZE;
-const ROW_HEIGHT = HEX_HEIGHT * 0.75;
+const MAX_HEX_SIZE = 70; // radius of hex
+const MIN_HEX_SIZE = 30;
+const PATH_CONSTRAINTS = {
+  minExtraSteps: 2,
+  minRowChanges: 2,
+  maxGenerationAttempts: 240
+};
+
+let hexSize = MAX_HEX_SIZE;
+let hexWidth = Math.sqrt(3) * hexSize;
+let hexHeight = 2 * hexSize;
+let rowHeight = hexHeight * 0.75;
 
 // Colors
 const COL = {
@@ -395,11 +477,81 @@ let hoveredCell = null;
 // ============================================================
 // HEX GEOMETRY
 // ============================================================
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function updateHexMetrics() {
+  hexWidth = Math.sqrt(3) * hexSize;
+  hexHeight = 2 * hexSize;
+  rowHeight = hexHeight * 0.75;
+}
+
+function getHorizontalRadius(size) {
+  return Math.sqrt(3) * size / 2;
+}
+
+function getGameContainerInnerWidth() {
+  const container = document.getElementById('game-container');
+  if (!container) {
+    const viewportWidth = Math.min(window.innerWidth || 1024, document.documentElement.clientWidth || 1024);
+    return Math.max(260, viewportWidth - 24);
+  }
+
+  const styles = getComputedStyle(container);
+  const padLeft = parseFloat(styles.paddingLeft) || 0;
+  const padRight = parseFloat(styles.paddingRight) || 0;
+  return Math.max(260, container.clientWidth - padLeft - padRight);
+}
+
+function getBoardPadding() {
+  const xRadius = getHorizontalRadius(hexSize);
+  return {
+    x: Math.max(16, Math.ceil(xRadius + 6)),
+    y: Math.max(18, Math.ceil(hexSize + 6))
+  };
+}
+
+function estimateBoardWidth(size) {
+  const width = Math.sqrt(3) * size;
+  const xRadius = getHorizontalRadius(size);
+  const pad = Math.max(16, Math.ceil(xRadius + 6));
+  const oddRowShift = ROWS > 1 ? width / 2 : 0;
+  return pad + (COLS - 1) * width + oddRowShift + xRadius + pad;
+}
+
+function computeResponsiveHexSize() {
+  const availableWidth = getGameContainerInnerWidth();
+  let size = MAX_HEX_SIZE;
+  while (size > MIN_HEX_SIZE && estimateBoardWidth(size) > availableWidth) {
+    size -= 1;
+  }
+  return clamp(size, MIN_HEX_SIZE, MAX_HEX_SIZE);
+}
+
+function syncGridGeometry() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!grid[r] || !grid[r][c]) continue;
+      const center = hexCenter(r, c);
+      grid[r][c].cx = center.x;
+      grid[r][c].cy = center.y;
+    }
+  }
+}
+
+function updateResponsiveLayout(force = false) {
+  const nextSize = computeResponsiveHexSize();
+  if (!force && Math.abs(nextSize - hexSize) < 0.5) return;
+  hexSize = nextSize;
+  updateHexMetrics();
+  if (grid.length) syncGridGeometry();
+}
+
 function hexCenter(row, col) {
-  const offsetX = 40;
-  const offsetY = 30;
-  const x = offsetX + col * HEX_WIDTH + (row % 2 === 1 ? HEX_WIDTH / 2 : 0);
-  const y = offsetY + row * ROW_HEIGHT;
+  const pad = getBoardPadding();
+  const x = pad.x + col * hexWidth + (row % 2 === 1 ? hexWidth / 2 : 0);
+  const y = pad.y + row * rowHeight;
   return { x, y };
 }
 
@@ -408,8 +560,8 @@ function hexCorners(cx, cy) {
   for (let i = 0; i < 6; i++) {
     const angle = Math.PI / 180 * (60 * i - 30);
     corners.push({
-      x: cx + HEX_SIZE * Math.cos(angle),
-      y: cy + HEX_SIZE * Math.sin(angle)
+      x: cx + hexSize * Math.cos(angle),
+      y: cy + hexSize * Math.sin(angle)
     });
   }
   return corners;
@@ -418,8 +570,8 @@ function hexCorners(cx, cy) {
 function pointInHex(px, py, cx, cy) {
   const dx = Math.abs(px - cx);
   const dy = Math.abs(py - cy);
-  if (dx > HEX_WIDTH / 2 || dy > HEX_SIZE) return false;
-  return HEX_SIZE * HEX_WIDTH / 2 - HEX_SIZE * dx - HEX_WIDTH / 2 * dy >= 0;
+  if (dx > hexWidth / 2 || dy > hexSize) return false;
+  return hexSize * hexWidth / 2 - hexSize * dx - hexWidth / 2 * dy >= 0;
 }
 
 function getHexNeighbors(row, col) {
@@ -453,61 +605,135 @@ function shuffle(arr) {
   return arr;
 }
 
-function generatePath() {
-  // Generate a path from column 0 to column COLS-1
-  // Start from a random row in col 0, end at a random row in col COLS-1
-  const startRow = Math.floor(Math.random() * ROWS);
-  const endRow = Math.floor(Math.random() * ROWS);
+function cellKey(row, col) {
+  return `${row},${col}`;
+}
 
-  // BFS/DFS to find a path that visits each column at least once
-  // Use randomized DFS
-  const visited = new Set();
-  const path = [];
+function isLinearTargetPath(path) {
+  if (!path || path.length < COLS) return false;
+  if (path[0].col !== 0 || path[path.length - 1].col !== COLS - 1) return false;
 
-  function key(r, c) { return `${r},${c}`; }
+  const pathSet = new Set(path.map(p => cellKey(p.row, p.col)));
+  if (pathSet.size !== path.length) return false;
 
-  function dfs(r, c) {
-    if (c === COLS - 1) {
-      path.push({ row: r, col: c });
+  const startKey = cellKey(path[0].row, path[0].col);
+  const endKey = cellKey(path[path.length - 1].row, path[path.length - 1].col);
+  let degreeOneCount = 0;
+
+  for (const cell of path) {
+    const key = cellKey(cell.row, cell.col);
+    let degree = 0;
+
+    for (const n of getHexNeighbors(cell.row, cell.col)) {
+      if (pathSet.has(cellKey(n.row, n.col))) degree++;
+    }
+
+    if (degree > 2) return false;
+
+    const endpoint = key === startKey || key === endKey;
+    if (endpoint) {
+      if (degree !== 1) return false;
+    } else if (degree !== 2) {
+      return false;
+    }
+
+    if (degree === 1) degreeOneCount++;
+  }
+
+  return degreeOneCount === 2;
+}
+
+function buildPathCandidate(minPathLength, minRowChanges, startRow) {
+  const path = [{ row: startRow, col: 0 }];
+  const visited = new Set([`${startRow},0`]);
+
+  function dfs(row, col, rowChanges) {
+    if (col === COLS - 1) {
+      return path.length >= minPathLength
+        && rowChanges >= minRowChanges
+        && isLinearTargetPath(path);
+    }
+
+    const candidates = getHexNeighbors(row, col).filter(n => {
+      if (visited.has(`${n.row},${n.col}`)) return false;
+      if (n.col < col || n.col > col + 1) return false;
+      if (col === 0 && n.col === 0) return false; // keep a single left-edge entry tile
       return true;
+    });
+    const sameCol = shuffle(candidates.filter(n => n.col === col));
+    const nextCol = shuffle(candidates.filter(n => n.col === col + 1));
+
+    let ordered;
+    if (path.length < minPathLength - 1) {
+      ordered = Math.random() < 0.7 ? [...sameCol, ...nextCol] : [...nextCol, ...sameCol];
+    } else {
+      ordered = Math.random() < 0.7 ? [...nextCol, ...sameCol] : [...sameCol, ...nextCol];
     }
 
-    visited.add(key(r, c));
-    path.push({ row: r, col: c });
+    for (const next of ordered) {
+      const nextLength = path.length + 1;
+      const nextRowChanges = rowChanges + (next.row !== row ? 1 : 0);
 
-    const neighbors = shuffle(getHexNeighbors(r, c).filter(n => {
-      return !visited.has(key(n.row, n.col)) && n.col >= c; // only go right or same column
-    }));
+      if (next.col === COLS - 1 && (nextLength < minPathLength || nextRowChanges < minRowChanges)) {
+        continue;
+      }
 
-    // Prefer moving right
-    neighbors.sort((a, b) => b.col - a.col);
-
-    for (const n of neighbors) {
-      if (dfs(n.row, n.col)) return true;
+      visited.add(`${next.row},${next.col}`);
+      path.push({ row: next.row, col: next.col });
+      if (dfs(next.row, next.col, nextRowChanges)) return true;
+      path.pop();
+      visited.delete(`${next.row},${next.col}`);
     }
 
-    path.pop();
-    visited.delete(key(r, c));
     return false;
   }
 
-  if (dfs(startRow, 0)) {
-    return path;
+  return dfs(startRow, 0, 0) ? path.slice() : null;
+}
+
+function generateFallbackPath() {
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const startRow = Math.floor(Math.random() * ROWS);
+    const path = [{ row: startRow, col: 0 }];
+    let row = startRow;
+
+    for (let col = 0; col < COLS - 1; col++) {
+      const rightNeighbors = shuffle(getHexNeighbors(row, col).filter(n => n.col === col + 1));
+      const next = rightNeighbors.find(n => n.row !== row) || rightNeighbors[0] || { row, col: col + 1 };
+      path.push({ row: next.row, col: next.col });
+      row = next.row;
+    }
+
+    if (isLinearTargetPath(path)) return path;
   }
 
-  // Fallback: simple zigzag path
-  const fallback = [];
-  let r = startRow;
-  for (let c = 0; c < COLS; c++) {
-    fallback.push({ row: r, col: c });
-    if (c < COLS - 1) {
-      const neighbors = getHexNeighbors(r, c).filter(n => n.col === c + 1);
-      if (neighbors.length > 0) {
-        r = pickRandom(neighbors).row;
-      }
+  // Last-resort deterministic path (should be rare).
+  const path = [];
+  const centerRow = Math.floor(ROWS / 2);
+  for (let col = 0; col < COLS; col++) {
+    path.push({ row: centerRow, col });
+  }
+  return path;
+}
+
+function generatePath() {
+  const strictLength = Math.min(COLS + PATH_CONSTRAINTS.minExtraSteps, COLS * ROWS);
+  const strictTurns = Math.min(PATH_CONSTRAINTS.minRowChanges, COLS * ROWS - 1);
+  const tiers = [
+    { minPathLength: strictLength, minRowChanges: strictTurns },
+    { minPathLength: Math.min(COLS + 1, COLS * ROWS), minRowChanges: 1 },
+    { minPathLength: COLS, minRowChanges: 0 }
+  ];
+
+  for (const tier of tiers) {
+    for (let attempt = 0; attempt < PATH_CONSTRAINTS.maxGenerationAttempts; attempt++) {
+      const startRow = Math.floor(Math.random() * ROWS);
+      const candidate = buildPathCandidate(tier.minPathLength, tier.minRowChanges, startRow);
+      if (candidate) return candidate;
     }
   }
-  return fallback;
+
+  return generateFallbackPath();
 }
 
 function hasAlternatePath(grid, correctPathSet, targetPattern) {
@@ -562,6 +788,7 @@ function generateMaze() {
   gameOver = false;
   selectedPath = [];
   hoveredCell = null;
+  updateResponsiveLayout(true);
 
   // Pick a target pattern (weight toward 2-syllable patterns which have more words)
   const patterns = Object.keys(WORDS).filter(p => WORDS[p].length >= COLS * ROWS / 2);
@@ -651,14 +878,32 @@ function generateMaze() {
 // RENDERING
 // ============================================================
 function resizeCanvas() {
-  const maxCX = Math.max(...grid.flat().map(c => c.cx)) + HEX_SIZE + 40;
-  const maxCY = Math.max(...grid.flat().map(c => c.cy)) + HEX_SIZE + 30;
+  if (!grid.length) return;
+  const pad = getBoardPadding();
+  const xRadius = hexWidth / 2;
+  const maxCX = Math.ceil(Math.max(...grid.flat().map(c => c.cx)) + xRadius + pad.x + 2);
+  const maxCY = Math.ceil(Math.max(...grid.flat().map(c => c.cy)) + hexSize + pad.y + 2);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = maxCX * dpr;
   canvas.height = maxCY * dpr;
   canvas.style.width = maxCX + 'px';
   canvas.style.height = maxCY + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawRoundedRect(x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 
 function drawHex(cell, state) {
@@ -693,27 +938,53 @@ function drawHex(cell, state) {
 
   // Word text
   const wordClass = WORD_CLASS[cell.word];
-  const textY = wordClass ? cell.cy - 5 : cell.cy;
+  const textY = wordClass ? cell.cy - Math.round(hexSize * 0.1) : cell.cy;
   const fontFamily = "'Inter', 'SF Pro Display', system-ui, sans-serif";
 
   ctx.fillStyle = state === 'selected' || state === 'correct' || state === 'wrong'
     ? COL.textSelected : COL.textNormal;
-  const fontSize = cell.word.length > 9 ? 10 : cell.word.length > 7 ? 12 : 13;
+  const fontSize = cell.word.length > 9
+    ? Math.max(8, Math.round(hexSize * 0.18))
+    : cell.word.length > 7
+      ? Math.max(9, Math.round(hexSize * 0.22))
+      : Math.max(10, Math.round(hexSize * 0.25));
   ctx.font = `500 ${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(cell.word, cell.cx, textY);
 
-  // Word class label (small italic, only for ambiguous words)
+  // Word class badge for ambiguous words (n./v./adj.)
   if (wordClass) {
-    ctx.fillStyle = state === 'selected' || state === 'correct' || state === 'wrong'
-      ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)';
-    ctx.font = `italic 8px ${fontFamily}`;
-    ctx.fillText(wordClass, cell.cx, textY + 15);
+    const classFont = Math.max(9, Math.round(hexSize * 0.2));
+    const label = wordClass.toUpperCase();
+    const labelY = textY + Math.round(hexSize * 0.32);
+    const textPadX = Math.max(4, Math.round(classFont * 0.45));
+    const badgeHeight = Math.max(12, classFont + 4);
+    const badgeRadius = Math.max(4, Math.round(badgeHeight * 0.35));
+    const isActive = state === 'selected' || state === 'correct' || state === 'wrong';
+
+    ctx.font = `700 ${classFont}px ${fontFamily}`;
+    const labelWidth = ctx.measureText(label).width;
+    const badgeWidth = labelWidth + textPadX * 2;
+    const badgeX = cell.cx - badgeWidth / 2;
+    const badgeY = labelY - badgeHeight / 2;
+
+    drawRoundedRect(badgeX, badgeY, badgeWidth, badgeHeight, badgeRadius);
+    ctx.fillStyle = isActive ? 'rgba(16, 17, 32, 0.62)' : 'rgba(255,255,255,0.14)';
+    ctx.fill();
+    ctx.strokeStyle = isActive ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.93)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cell.cx, labelY + 0.5);
   }
 }
 
 function draw() {
+  updateResponsiveLayout();
   resizeCanvas();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -789,11 +1060,19 @@ function isAdjacent(a, b) {
   return neighbors.some(n => n.row === b.row && n.col === b.col);
 }
 
+function isExactSolutionPath(selected, solution) {
+  if (selected.length !== solution.length) return false;
+  for (let i = 0; i < selected.length; i++) {
+    if (selected[i].row !== solution[i].row || selected[i].col !== solution[i].col) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function handleCellClick(row, col) {
   if (gameOver) return;
-
   const cell = grid[row][col];
-  const cellKey = `${row},${col}`;
 
   // Check if clicking the last selected cell (undo)
   if (selectedPath.length > 0) {
@@ -808,10 +1087,10 @@ function handleCellClick(row, col) {
     }
   }
 
-  // First selection must be an entry tile (col 0 with correct pattern, or any col 0)
+  // First selection must be the highlighted entry tile.
   if (selectedPath.length === 0) {
-    if (col !== 0) {
-      setMessage('Start from the left edge!');
+    if (!cell.isEntry) {
+      setMessage('Start from the green entry tile on the left.');
       return;
     }
     selectedPath.push({ row, col });
@@ -848,8 +1127,8 @@ function handleCellClick(row, col) {
 function checkWin() {
   gameOver = true;
 
-  // Check if all selected tiles have the target pattern
-  const allCorrect = selectedPath.every(p => grid[p.row][p.col].pattern === targetPattern);
+  // The player's route must match the full generated chain exactly.
+  const allCorrect = isExactSolutionPath(selectedPath, correctPath);
 
   if (allCorrect) {
     score++;
@@ -861,11 +1140,12 @@ function checkWin() {
       grid[p.row][p.col].showCorrect = true;
     }
   } else {
-    setMessage('Not quite! The correct path is shown in green.', 'incorrect');
+    setMessage('Not quite! Follow the full green chain to the exit.', 'incorrect');
+    const correctPathSet = new Set(correctPath.map(p => cellKey(p.row, p.col)));
 
-    // Show which cells were wrong
+    // Show selected cells that are not part of the solution as wrong.
     for (const p of selectedPath) {
-      if (grid[p.row][p.col].pattern !== targetPattern) {
+      if (!correctPathSet.has(cellKey(p.row, p.col))) {
         grid[p.row][p.col].showWrong = true;
       } else {
         grid[p.row][p.col].showCorrect = true;
@@ -911,8 +1191,17 @@ function getCellAtPoint(x, y) {
 
 function getCanvasPoint(e) {
   const rect = canvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  let clientX = e.clientX;
+  let clientY = e.clientY;
+
+  if ((clientX === undefined || clientY === undefined) && e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else if ((clientX === undefined || clientY === undefined) && e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
+  }
+
   return {
     x: clientX - rect.left,
     y: clientY - rect.top
@@ -926,23 +1215,11 @@ function init() {
   canvas = document.getElementById('maze-canvas');
   ctx = canvas.getContext('2d');
 
-  canvas.addEventListener('click', (e) => {
+  canvas.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     const pt = getCanvasPoint(e);
     const cell = getCellAtPoint(pt.x, pt.y);
     if (cell) handleCellClick(cell.row, cell.col);
-  });
-
-  canvas.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    if (e.changedTouches.length > 0) {
-      const rect = canvas.getBoundingClientRect();
-      const pt = {
-        x: e.changedTouches[0].clientX - rect.left,
-        y: e.changedTouches[0].clientY - rect.top
-      };
-      const cell = getCellAtPoint(pt.x, pt.y);
-      if (cell) handleCellClick(cell.row, cell.col);
-    }
   });
 
   canvas.addEventListener('mousemove', (e) => {
@@ -968,6 +1245,8 @@ function init() {
 
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-new').addEventListener('click', generateMaze);
+  window.addEventListener('resize', draw);
+  window.addEventListener('orientationchange', draw);
 
   generateMaze();
 }
