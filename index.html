@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stress Maze</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px 8px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    color: #e94560;
+    letter-spacing: 2px;
+  }
+
+  #score-display {
+    font-size: 1.1rem;
+    color: #0f3460;
+    background: #e94560;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-weight: bold;
+  }
+
+  #pattern-display {
+    text-align: center;
+    padding: 10px 20px;
+    margin-bottom: 4px;
+  }
+
+  #pattern-display .label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 6px;
+  }
+
+  #pattern-dots {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 8px;
+    margin: 6px 0;
+  }
+
+  #pattern-dots .dot {
+    border-radius: 50%;
+    background: #e94560;
+    transition: all 0.3s;
+  }
+
+  #pattern-dots .dot.stressed {
+    width: 28px;
+    height: 28px;
+  }
+
+  #pattern-dots .dot.unstressed {
+    width: 16px;
+    height: 16px;
+    background: #533483;
+  }
+
+  #pattern-text {
+    font-size: 1rem;
+    color: #ccc;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  #game-container {
+    position: relative;
+    touch-action: none;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  #message {
+    text-align: center;
+    min-height: 32px;
+    font-size: 1rem;
+    padding: 6px;
+    color: #aaa;
+  }
+
+  #message.correct {
+    color: #4ecca3;
+    font-weight: bold;
+  }
+
+  #message.incorrect {
+    color: #e94560;
+    font-weight: bold;
+  }
+
+  #controls {
+    display: flex;
+    gap: 12px;
+    padding: 10px;
+  }
+
+  button {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  button:hover { background: #c73652; }
+
+  button.secondary {
+    background: #533483;
+  }
+
+  button.secondary:hover { background: #6b44a0; }
+
+  #instructions {
+    max-width: 600px;
+    text-align: center;
+    padding: 0 20px 20px;
+    font-size: 0.82rem;
+    color: #666;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>STRESS MAZE</h1>
+  <div id="score-display">Score: 0</div>
+</header>
+
+<div id="pattern-display">
+  <div class="label">Find the path using words with this stress pattern:</div>
+  <div id="pattern-dots"></div>
+  <div id="pattern-text"></div>
+</div>
+
+<div id="game-container">
+  <canvas id="maze-canvas"></canvas>
+</div>
+
+<div id="message">Tap a green entry tile on the left to start</div>
+
+<div id="controls">
+  <button class="secondary" id="btn-undo">Undo</button>
+  <button id="btn-new">New Maze</button>
+</div>
+
+<div id="instructions">
+  Tap hexagons to trace a path from the left edge to the right edge.
+  Only follow words that match the stress pattern shown above.
+</div>
+
+<script>
+// ============================================================
+// WORD DATA: 2-3 syllable AWL words with stress patterns
+// Pattern: 1 = stressed, 0 = unstressed
+// ============================================================
+const WORDS = {
+  // ---- 2-syllable: pattern "10" (first stressed) ----
+  "10": [
+    "access","adult","alter","area","aspect","author",
+    "bias","bond","brief","bulk","channel","chapter",
+    "chart","civil","classic","clause","code","comment",
+    "complex","compound","concept","conflict","constant",
+    "contact","contrast","convert","couple","credit",
+    "culture","cycle","data","decade","decline",
+    "display","diverse","domain","draft","drama","edit",
+    "error","estate","ethic","expert",
+    "factor","feature","file","final","finite","focus",
+    "format","framework","function","gender","global","globe",
+    "grade","guideline","highlight","image","impact","income",
+    "index","input","insert","inspect","instance","instruct",
+    "intense","item","journal","label","labour","layer",
+    "legal","levy","licence","likewise","link","logic",
+    "major","manual","margin","mature","media","mental",
+    "method","migrate","mindset","minor","mode","model",
+    "modify","monitor","motive","network","neutral","normal",
+    "notion","nuclear","offset","option","output","overlap",
+    "panel","passive","percent","period","phase",
+    "physical","plus","policy","portion","posit","practice",
+    "precise","prime","prior","process","project",
+    "prospect","publish","purchase","random","ratio","react",
+    "region","regime","release","remove","research",
+    "resource","restrict","reverse","rigid","role","route",
+    "schedule","section","sector","sequence","series","sex",
+    "shift","sole","somewhat","source","sphere",
+    "stable","status","structure","style","submit","sum",
+    "summary","supplement","survey","symbol","target","task",
+    "team","technique","tenses","text","theme",
+    "thereby","topic","transit","trigger","trend","version",
+    "vision","visual","volume","welfare"
+  ],
+
+  // ---- 2-syllable: pattern "01" (second stressed) ----
+  "01": [
+    "achieve","acquire","adapt","adjust","affect","amend",
+    "append","approach","assure","attach","attain","aware",
+    "behalf","cite","cohere","commence","commit","compile",
+    "comprise","conceive","conclude","conduct","confine",
+    "confirm","conform","consent","consist","constrain",
+    "consult","consume","convene","convince","create",
+    "debate","deduce","define","denote","deny","depress",
+    "derive","design","despite","detect","deviate","devote",
+    "dispose","distinct","distort","emerge","enable",
+    "enforce","ensure","equate","equip","erode","evolve",
+    "exceed","exclude","expand","exploit","export","expose",
+    "extract","finance","impose","incline","induce",
+    "infer","inject","invoke","involve","locate","maintain",
+    "negate","obtain","occur","orient","perceive","persist",
+    "pose","precede","predict","presume","proceed","promote",
+    "pursue","quote","refine","reject","relax","rely",
+    "require","reside","resolve","respond","restrain",
+    "restore","retain","reveal","revise","secure","select",
+    "seek","sustain","survive","transfer","transform",
+    "transport","unify"
+  ],
+
+  // ---- 3-syllable: pattern "100" (first stressed) ----
+  "100": [
+    "adequate","aggregate","automate","category",
+    "chemical","clarify","competent","complement",
+    "document","dominate","element","energy",
+    "entity","estimate","evident","federal",
+    "formula","generate","ignorant","imagery",
+    "implement","incident","indicate","industry",
+    "institute","integrate","interval","liberal",
+    "maximise","mechanism","medical","military",
+    "minimise","ministry","negative","normalise",
+    "obvious","occupy","paradigm","positive",
+    "primary","principal","protocol","qualify",
+    "radical","rational","register","regulate",
+    "simulate","specify","strategy","subsidy",
+    "summarise","technical","terminate","ultimate",
+    "uniform","video"
+  ],
+
+  // ---- 3-syllable: pattern "010" (middle stressed) ----
+  "010": [
+    "abandon","adjustment","amendment","apparent",
+    "assemble","assumption","awareness","committee",
+    "component","computer","conclusion","consumer",
+    "convention","creation","criterion","cultural",
+    "debatable","departure","depression","dimension",
+    "disposal","distinguish","domestic","donation",
+    "dynamic","edition","encounter","enormous",
+    "equipment","establish","eventual","exclusion",
+    "exhibit","external","financial","foundation",
+    "however","illegal","implicit","incentive",
+    "initial","injection","insurance","internal",
+    "investment","involvement","location","objective",
+    "percentage","perspective","potential","procedure",
+    "proportion","provision","reaction","recovery",
+    "rejection","reluctance","retention","subjective",
+    "successor","sufficient","suspension","tradition",
+    "transition"
+  ],
+
+  // ---- 3-syllable: pattern "001" (last stressed) ----
+  "001": [
+    "coincide","guarantee","intervene","engineer",
+    "reassign","reinforce","volunteer","interfere",
+    "interact","overcome","undermine","reassess",
+    "oversee","circumvent","contradict","intersect",
+    "decompose","realign","disconnect","disengage"
+  ]
+};
+
+// ============================================================
+// GAME CONFIG
+// ============================================================
+const COLS = 5;
+const ROWS = 5;
+const HEX_SIZE = 52; // radius of hex
+const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
+const HEX_HEIGHT = 2 * HEX_SIZE;
+const ROW_HEIGHT = HEX_HEIGHT * 0.75;
+
+// Colors
+const COL = {
+  bg: '#16213e',
+  hex: '#0f3460',
+  hexStroke: '#533483',
+  hexHover: '#1a1a4e',
+  hexSelected: '#e94560',
+  hexPath: '#4ecca3',
+  hexEntry: '#4ecca3',
+  hexWrong: '#e94560',
+  textNormal: '#ddd',
+  textSelected: '#fff',
+};
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let canvas, ctx;
+let grid = [];        // 2D array [row][col] of cell objects
+let selectedPath = []; // array of {row, col}
+let targetPattern = '';
+let score = 0;
+let correctPath = [];  // the generated solution path
+let gameOver = false;
+let hoveredCell = null;
+
+// ============================================================
+// HEX GEOMETRY
+// ============================================================
+function hexCenter(row, col) {
+  const offsetX = 40;
+  const offsetY = 30;
+  const x = offsetX + col * HEX_WIDTH + (row % 2 === 1 ? HEX_WIDTH / 2 : 0);
+  const y = offsetY + row * ROW_HEIGHT;
+  return { x, y };
+}
+
+function hexCorners(cx, cy) {
+  const corners = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.PI / 180 * (60 * i - 30);
+    corners.push({
+      x: cx + HEX_SIZE * Math.cos(angle),
+      y: cy + HEX_SIZE * Math.sin(angle)
+    });
+  }
+  return corners;
+}
+
+function pointInHex(px, py, cx, cy) {
+  const dx = Math.abs(px - cx);
+  const dy = Math.abs(py - cy);
+  if (dx > HEX_WIDTH / 2 || dy > HEX_SIZE) return false;
+  return HEX_SIZE * HEX_WIDTH / 2 - HEX_SIZE * dx - HEX_WIDTH / 2 * dy >= 0;
+}
+
+function getHexNeighbors(row, col) {
+  const neighbors = [];
+  const even = row % 2 === 0;
+  const dirs = even
+    ? [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]]
+    : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]];
+  for (const [dr, dc] of dirs) {
+    const nr = row + dr;
+    const nc = col + dc;
+    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+      neighbors.push({ row: nr, col: nc });
+    }
+  }
+  return neighbors;
+}
+
+// ============================================================
+// MAZE GENERATION
+// ============================================================
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function generatePath() {
+  // Generate a path from column 0 to column COLS-1
+  // Start from a random row in col 0, end at a random row in col COLS-1
+  const startRow = Math.floor(Math.random() * ROWS);
+  const endRow = Math.floor(Math.random() * ROWS);
+
+  // BFS/DFS to find a path that visits each column at least once
+  // Use randomized DFS
+  const visited = new Set();
+  const path = [];
+
+  function key(r, c) { return `${r},${c}`; }
+
+  function dfs(r, c) {
+    if (c === COLS - 1) {
+      path.push({ row: r, col: c });
+      return true;
+    }
+
+    visited.add(key(r, c));
+    path.push({ row: r, col: c });
+
+    const neighbors = shuffle(getHexNeighbors(r, c).filter(n => {
+      return !visited.has(key(n.row, n.col)) && n.col >= c; // only go right or same column
+    }));
+
+    // Prefer moving right
+    neighbors.sort((a, b) => b.col - a.col);
+
+    for (const n of neighbors) {
+      if (dfs(n.row, n.col)) return true;
+    }
+
+    path.pop();
+    visited.delete(key(r, c));
+    return false;
+  }
+
+  if (dfs(startRow, 0)) {
+    return path;
+  }
+
+  // Fallback: simple zigzag path
+  const fallback = [];
+  let r = startRow;
+  for (let c = 0; c < COLS; c++) {
+    fallback.push({ row: r, col: c });
+    if (c < COLS - 1) {
+      const neighbors = getHexNeighbors(r, c).filter(n => n.col === c + 1);
+      if (neighbors.length > 0) {
+        r = pickRandom(neighbors).row;
+      }
+    }
+  }
+  return fallback;
+}
+
+function hasAlternatePath(grid, correctPathSet, targetPattern) {
+  // Check if there's another path from col 0 to col COLS-1
+  // using only cells with the target pattern that aren't all on the correct path
+  const starts = [];
+  for (let r = 0; r < ROWS; r++) {
+    if (grid[r][0].pattern === targetPattern) {
+      starts.push({ row: r, col: 0 });
+    }
+  }
+
+  for (const start of starts) {
+    const visited = new Set();
+    const queue = [start];
+    visited.add(`${start.row},${start.col}`);
+    let reachesEnd = false;
+    const pathCells = new Set();
+
+    while (queue.length > 0) {
+      const curr = queue.shift();
+      pathCells.add(`${curr.row},${curr.col}`);
+      if (curr.col === COLS - 1) {
+        reachesEnd = true;
+        break;
+      }
+      for (const n of getHexNeighbors(curr.row, curr.col)) {
+        const nk = `${n.row},${n.col}`;
+        if (!visited.has(nk) && grid[n.row][n.col].pattern === targetPattern) {
+          visited.add(nk);
+          queue.push(n);
+        }
+      }
+    }
+
+    if (reachesEnd) {
+      // Check this path doesn't include non-correct-path cells forming an alternate
+      // Actually we just need to ensure only one connected component of target pattern
+      // reaches from left to right. We'll check if all target-pattern cells that
+      // reach the right side form exactly the correct path.
+      // For simplicity, we return true if any cell not on the correct path
+      // is part of a left-to-right path
+      for (const ck of pathCells) {
+        if (!correctPathSet.has(ck)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function generateMaze() {
+  gameOver = false;
+  selectedPath = [];
+  hoveredCell = null;
+
+  // Pick a target pattern (weight toward 2-syllable patterns which have more words)
+  const patterns = Object.keys(WORDS).filter(p => WORDS[p].length >= COLS * ROWS / 2);
+  targetPattern = pickRandom(patterns);
+
+  // Generate the correct path
+  correctPath = generatePath();
+  const correctPathSet = new Set(correctPath.map(c => `${c.row},${c.col}`));
+
+  // Get words for the target pattern
+  const targetWords = shuffle([...WORDS[targetPattern]]);
+  // Get distractor words (all other patterns)
+  const distractorPatterns = Object.keys(WORDS).filter(p => p !== targetPattern && p.length === targetPattern.length);
+  let distractorWords = [];
+  for (const p of distractorPatterns) {
+    distractorWords.push(...WORDS[p]);
+  }
+  distractorWords = shuffle(distractorWords);
+
+  let targetIdx = 0;
+  let distractorIdx = 0;
+  let attempts = 0;
+
+  do {
+    // Build the grid
+    grid = [];
+    targetIdx = 0;
+    distractorIdx = 0;
+
+    for (let r = 0; r < ROWS; r++) {
+      grid[r] = [];
+      for (let c = 0; c < COLS; c++) {
+        const center = hexCenter(r, c);
+        const onPath = correctPathSet.has(`${r},${c}`);
+
+        let word, pattern;
+        if (onPath) {
+          word = targetWords[targetIdx % targetWords.length];
+          pattern = targetPattern;
+          targetIdx++;
+        } else {
+          word = distractorWords[distractorIdx % distractorWords.length];
+          pattern = distractorPatterns[distractorIdx % distractorPatterns.length] || '??';
+          distractorIdx++;
+        }
+
+        grid[r][c] = {
+          row: r,
+          col: c,
+          cx: center.x,
+          cy: center.y,
+          word: word,
+          pattern: pattern,
+          onPath: onPath,
+          isEntry: onPath && c === 0,
+          isExit: onPath && c === COLS - 1,
+        };
+      }
+    }
+
+    attempts++;
+    // Verify no alternate path exists
+  } while (hasAlternatePath(grid, correctPathSet, targetPattern) && attempts < 20);
+
+  // If we couldn't eliminate alternate paths, replace offending distractor cells
+  if (attempts >= 20) {
+    // Force: any non-path cell with targetPattern gets a different word
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!grid[r][c].onPath && grid[r][c].pattern === targetPattern) {
+          const dp = distractorPatterns[0] || (targetPattern === '10' ? '01' : '10');
+          const dw = distractorWords[distractorIdx % distractorWords.length];
+          grid[r][c].word = dw;
+          grid[r][c].pattern = dp;
+          distractorIdx++;
+        }
+      }
+    }
+  }
+
+  updatePatternDisplay();
+  setMessage('Tap a green entry tile on the left to start');
+  draw();
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function resizeCanvas() {
+  const maxCX = Math.max(...grid.flat().map(c => c.cx)) + HEX_SIZE + 40;
+  const maxCY = Math.max(...grid.flat().map(c => c.cy)) + HEX_SIZE + 30;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = maxCX * dpr;
+  canvas.height = maxCY * dpr;
+  canvas.style.width = maxCX + 'px';
+  canvas.style.height = maxCY + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawHex(cell, state) {
+  const corners = hexCorners(cell.cx, cell.cy);
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  for (let i = 1; i < 6; i++) {
+    ctx.lineTo(corners[i].x, corners[i].y);
+  }
+  ctx.closePath();
+
+  // Fill
+  let fillColor = COL.hex;
+  if (state === 'selected') fillColor = COL.hexSelected;
+  else if (state === 'correct') fillColor = COL.hexPath;
+  else if (state === 'wrong') fillColor = COL.hexWrong;
+  else if (state === 'entry') fillColor = '#1b4332';
+  else if (state === 'hover') fillColor = COL.hexHover;
+
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  // Stroke
+  let strokeColor = COL.hexStroke;
+  if (state === 'entry') strokeColor = COL.hexEntry;
+  else if (state === 'selected') strokeColor = '#ff6b81';
+  else if (state === 'correct') strokeColor = '#6fffe9';
+
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = state === 'entry' ? 3 : 2;
+  ctx.stroke();
+
+  // Word text
+  ctx.fillStyle = state === 'selected' || state === 'correct' || state === 'wrong'
+    ? COL.textSelected : COL.textNormal;
+  ctx.font = `${cell.word.length > 9 ? 11 : cell.word.length > 7 ? 13 : 15}px 'Segoe UI', sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(cell.word, cell.cx, cell.cy);
+}
+
+function draw() {
+  resizeCanvas();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const selectedSet = new Set(selectedPath.map(c => `${c.row},${c.col}`));
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = grid[r][c];
+      const k = `${r},${c}`;
+      let state = 'normal';
+
+      if (gameOver && cell.showCorrect) state = 'correct';
+      else if (gameOver && cell.showWrong) state = 'wrong';
+      else if (selectedSet.has(k)) state = 'selected';
+      else if (cell.isEntry || cell.isExit) state = 'entry';
+      else if (hoveredCell && hoveredCell.row === r && hoveredCell.col === c) state = 'hover';
+
+      drawHex(cell, state);
+    }
+  }
+
+  // Draw path lines between selected cells
+  if (selectedPath.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(233, 69, 96, 0.5)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    const first = grid[selectedPath[0].row][selectedPath[0].col];
+    ctx.moveTo(first.cx, first.cy);
+    for (let i = 1; i < selectedPath.length; i++) {
+      const cell = grid[selectedPath[i].row][selectedPath[i].col];
+      ctx.lineTo(cell.cx, cell.cy);
+    }
+    ctx.stroke();
+  }
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function updatePatternDisplay() {
+  const dotsEl = document.getElementById('pattern-dots');
+  const textEl = document.getElementById('pattern-text');
+  dotsEl.innerHTML = '';
+
+  const syllables = [];
+  for (const ch of targetPattern) {
+    const dot = document.createElement('div');
+    dot.className = 'dot ' + (ch === '1' ? 'stressed' : 'unstressed');
+    dotsEl.appendChild(dot);
+    syllables.push(ch === '1' ? 'DA' : 'da');
+  }
+
+  textEl.textContent = syllables.join(' - ');
+}
+
+function setMessage(text, cls) {
+  const el = document.getElementById('message');
+  el.textContent = text;
+  el.className = cls || '';
+}
+
+function updateScore() {
+  document.getElementById('score-display').textContent = `Score: ${score}`;
+}
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function isAdjacent(a, b) {
+  const neighbors = getHexNeighbors(a.row, a.col);
+  return neighbors.some(n => n.row === b.row && n.col === b.col);
+}
+
+function handleCellClick(row, col) {
+  if (gameOver) return;
+
+  const cell = grid[row][col];
+  const cellKey = `${row},${col}`;
+
+  // Check if clicking the last selected cell (undo)
+  if (selectedPath.length > 0) {
+    const last = selectedPath[selectedPath.length - 1];
+    if (last.row === row && last.col === col) {
+      selectedPath.pop();
+      setMessage(selectedPath.length === 0
+        ? 'Tap a green entry tile on the left to start'
+        : 'Keep going! Tap an adjacent hex.');
+      draw();
+      return;
+    }
+  }
+
+  // First selection must be an entry tile (col 0 with correct pattern, or any col 0)
+  if (selectedPath.length === 0) {
+    if (col !== 0) {
+      setMessage('Start from the left edge!');
+      return;
+    }
+    selectedPath.push({ row, col });
+    setMessage('Keep going! Tap an adjacent hex.');
+    draw();
+    return;
+  }
+
+  // Must be adjacent to the last selected cell
+  const last = selectedPath[selectedPath.length - 1];
+  if (!isAdjacent(last, { row, col })) {
+    setMessage('That tile is not adjacent! Tap a neighboring hex.');
+    return;
+  }
+
+  // Don't allow revisiting
+  if (selectedPath.some(p => p.row === row && p.col === col)) {
+    setMessage('Already visited that tile!');
+    return;
+  }
+
+  selectedPath.push({ row, col });
+
+  // Check if reached the right edge
+  if (col === COLS - 1) {
+    checkWin();
+    return;
+  }
+
+  setMessage('Keep going! Tap an adjacent hex.');
+  draw();
+}
+
+function checkWin() {
+  gameOver = true;
+
+  // Check if all selected tiles have the target pattern
+  const allCorrect = selectedPath.every(p => grid[p.row][p.col].pattern === targetPattern);
+
+  if (allCorrect) {
+    score++;
+    updateScore();
+    setMessage('Correct! Well done!', 'correct');
+
+    // Highlight path green
+    for (const p of selectedPath) {
+      grid[p.row][p.col].showCorrect = true;
+    }
+  } else {
+    setMessage('Not quite! The correct path is shown in green.', 'incorrect');
+
+    // Show which cells were wrong
+    for (const p of selectedPath) {
+      if (grid[p.row][p.col].pattern !== targetPattern) {
+        grid[p.row][p.col].showWrong = true;
+      } else {
+        grid[p.row][p.col].showCorrect = true;
+      }
+    }
+
+    // Show correct path
+    for (const p of correctPath) {
+      grid[p.row][p.col].showCorrect = true;
+    }
+  }
+
+  draw();
+
+  // Auto-advance after delay
+  setTimeout(() => {
+    generateMaze();
+  }, 2500);
+}
+
+function undo() {
+  if (gameOver || selectedPath.length === 0) return;
+  selectedPath.pop();
+  setMessage(selectedPath.length === 0
+    ? 'Tap a green entry tile on the left to start'
+    : 'Keep going! Tap an adjacent hex.');
+  draw();
+}
+
+// ============================================================
+// INPUT HANDLING
+// ============================================================
+function getCellAtPoint(x, y) {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (pointInHex(x, y, grid[r][c].cx, grid[r][c].cy)) {
+        return { row: r, col: c };
+      }
+    }
+  }
+  return null;
+}
+
+function getCanvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top
+  };
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  canvas = document.getElementById('maze-canvas');
+  ctx = canvas.getContext('2d');
+
+  canvas.addEventListener('click', (e) => {
+    const pt = getCanvasPoint(e);
+    const cell = getCellAtPoint(pt.x, pt.y);
+    if (cell) handleCellClick(cell.row, cell.col);
+  });
+
+  canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (e.changedTouches.length > 0) {
+      const rect = canvas.getBoundingClientRect();
+      const pt = {
+        x: e.changedTouches[0].clientX - rect.left,
+        y: e.changedTouches[0].clientY - rect.top
+      };
+      const cell = getCellAtPoint(pt.x, pt.y);
+      if (cell) handleCellClick(cell.row, cell.col);
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const pt = getCanvasPoint(e);
+    const cell = getCellAtPoint(pt.x, pt.y);
+    if (cell) {
+      if (!hoveredCell || hoveredCell.row !== cell.row || hoveredCell.col !== cell.col) {
+        hoveredCell = cell;
+        draw();
+      }
+    } else if (hoveredCell) {
+      hoveredCell = null;
+      draw();
+    }
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    if (hoveredCell) {
+      hoveredCell = null;
+      draw();
+    }
+  });
+
+  document.getElementById('btn-undo').addEventListener('click', undo);
+  document.getElementById('btn-new').addEventListener('click', generateMaze);
+
+  generateMaze();
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
