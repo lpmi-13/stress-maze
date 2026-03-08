@@ -274,9 +274,9 @@
 </div>
 
 <div id="legend" aria-label="Legend">
-  <span class="legend-item"><span class="legend-badge">N.</span> Noun stress</span>
-  <span class="legend-item"><span class="legend-badge">V.</span> Verb stress</span>
-  <span class="legend-item"><span class="legend-badge">ADJ.</span> Adjective stress</span>
+  <span class="legend-item"><span class="legend-badge">N.</span> Noun</span>
+  <span class="legend-item"><span class="legend-badge">V.</span> Verb</span>
+  <span class="legend-item"><span class="legend-badge">ADJ.</span> Adjective</span>
 </div>
 
 <script>
@@ -957,7 +957,6 @@ function drawHex(cell, state) {
   if (wordClass) {
     const classFont = Math.max(9, Math.round(hexSize * 0.2));
     const label = wordClass.toUpperCase();
-    const labelY = textY + Math.round(hexSize * 0.32);
     const textPadX = Math.max(4, Math.round(classFont * 0.45));
     const badgeHeight = Math.max(12, classFont + 4);
     const badgeRadius = Math.max(4, Math.round(badgeHeight * 0.35));
@@ -966,6 +965,12 @@ function drawHex(cell, state) {
     ctx.font = `700 ${classFont}px ${fontFamily}`;
     const labelWidth = ctx.measureText(label).width;
     const badgeWidth = labelWidth + textPadX * 2;
+    const wordBottom = textY + fontSize / 2;
+    const preferredY = wordBottom + Math.max(8, Math.round(hexSize * 0.38));
+    const minLabelY = wordBottom + badgeHeight / 2 + Math.max(2, Math.round(hexSize * 0.06));
+    const bottomInset = Math.max(4, Math.round(hexSize * 0.12));
+    const maxLabelY = Math.max(minLabelY, cell.cy + hexSize - bottomInset - badgeHeight / 2);
+    const labelY = clamp(preferredY, minLabelY, maxLabelY);
     const badgeX = cell.cx - badgeWidth / 2;
     const badgeY = labelY - badgeHeight / 2;
 
