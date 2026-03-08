@@ -2,6 +2,8 @@
 
 A browser game for practising English word stress patterns using academic vocabulary.
 
+Play online at https://stress-maze.netlify.app
+
 ## How it works
 
 A 5×5 hexagonal grid is filled with 2–3 syllable words from the [Academic Word List](https://en.wikipedia.org/wiki/Academic_Word_List). One contiguous path from the left edge to the right edge is made up of words that share the same stress pattern (e.g. DA-da or da-DA-da). All other tiles are distractors with a different pattern.
