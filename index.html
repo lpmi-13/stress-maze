@@ -8,9 +8,9 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    background: #0f0f1a;
+    color: #e8e8ed;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -24,71 +24,78 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px 8px;
+    padding: 20px 24px 12px;
   }
 
   h1 {
-    font-size: 1.4rem;
-    color: #e94560;
-    letter-spacing: 2px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #e8e8ed;
+    letter-spacing: 4px;
+    text-transform: uppercase;
   }
 
   #score-display {
-    font-size: 1.1rem;
-    color: #0f3460;
-    background: #e94560;
-    padding: 4px 14px;
-    border-radius: 20px;
-    font-weight: bold;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    background: rgba(233, 69, 96, 0.15);
+    border: 1px solid rgba(233, 69, 96, 0.3);
+    padding: 6px 16px;
+    border-radius: 100px;
+    letter-spacing: 0.5px;
   }
 
   #pattern-display {
     text-align: center;
-    padding: 10px 20px;
-    margin-bottom: 4px;
+    padding: 8px 20px 4px;
   }
 
   #pattern-display .label {
-    font-size: 0.85rem;
-    color: #888;
-    margin-bottom: 6px;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.3px;
   }
 
   #pattern-dots {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    gap: 8px;
-    margin: 6px 0;
+    gap: 10px;
+    margin: 10px 0 4px;
   }
 
   #pattern-dots .dot {
     border-radius: 50%;
     background: #e94560;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
   }
 
   #pattern-dots .dot.stressed {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
+    box-shadow: 0 0 12px rgba(233, 69, 96, 0.4);
   }
 
   #pattern-dots .dot.unstressed {
-    width: 16px;
-    height: 16px;
-    background: #533483;
+    width: 12px;
+    height: 12px;
+    background: rgba(83, 52, 131, 0.7);
   }
 
   #pattern-text {
-    font-size: 1rem;
-    color: #ccc;
-    margin-top: 4px;
-    letter-spacing: 1px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.35);
+    margin-top: 2px;
+    letter-spacing: 2px;
   }
 
   #game-container {
     position: relative;
     touch-action: none;
+    padding: 4px 0;
   }
 
   canvas {
@@ -97,54 +104,75 @@
 
   #message {
     text-align: center;
-    min-height: 32px;
-    font-size: 1rem;
-    padding: 6px;
-    color: #aaa;
+    min-height: 28px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 6px 16px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.3px;
+    transition: color 0.2s ease;
   }
 
   #message.correct {
     color: #4ecca3;
-    font-weight: bold;
+    font-weight: 600;
   }
 
   #message.incorrect {
     color: #e94560;
-    font-weight: bold;
+    font-weight: 600;
   }
 
   #controls {
     display: flex;
-    gap: 12px;
-    padding: 10px;
+    gap: 10px;
+    padding: 8px;
   }
 
   button {
-    background: #e94560;
+    background: rgba(233, 69, 96, 0.9);
     color: #fff;
     border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: 8px 22px;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
   }
 
-  button:hover { background: #c73652; }
+  button:hover {
+    background: #e94560;
+    box-shadow: 0 0 16px rgba(233, 69, 96, 0.3);
+    transform: translateY(-1px);
+  }
+
+  button:active {
+    transform: translateY(0);
+  }
 
   button.secondary {
-    background: #533483;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6);
   }
 
-  button.secondary:hover { background: #6b44a0; }
+  button.secondary:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.25);
+    box-shadow: none;
+    color: rgba(255,255,255,0.8);
+  }
 
   #instructions {
-    max-width: 600px;
+    max-width: 500px;
     text-align: center;
-    padding: 0 20px 20px;
-    font-size: 0.82rem;
-    color: #666;
-    line-height: 1.5;
+    padding: 4px 20px 24px;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.2);
+    line-height: 1.6;
+    letter-spacing: 0.2px;
   }
 </style>
 </head>
@@ -340,15 +368,15 @@ const ROW_HEIGHT = HEX_HEIGHT * 0.75;
 
 // Colors
 const COL = {
-  bg: '#16213e',
-  hex: '#0f3460',
-  hexStroke: '#533483',
-  hexHover: '#1a1a4e',
-  hexSelected: '#e94560',
-  hexPath: '#4ecca3',
-  hexEntry: '#4ecca3',
-  hexWrong: '#e94560',
-  textNormal: '#ddd',
+  bg: '#0f0f1a',
+  hex: '#16162a',
+  hexStroke: 'rgba(255,255,255,0.08)',
+  hexHover: '#1c1c38',
+  hexSelected: 'rgba(233, 69, 96, 0.85)',
+  hexPath: 'rgba(78, 204, 163, 0.8)',
+  hexEntry: 'rgba(78, 204, 163, 0.25)',
+  hexWrong: 'rgba(233, 69, 96, 0.7)',
+  textNormal: 'rgba(255,255,255,0.7)',
   textSelected: '#fff',
 };
 
@@ -647,7 +675,7 @@ function drawHex(cell, state) {
   if (state === 'selected') fillColor = COL.hexSelected;
   else if (state === 'correct') fillColor = COL.hexPath;
   else if (state === 'wrong') fillColor = COL.hexWrong;
-  else if (state === 'entry') fillColor = '#1b4332';
+  else if (state === 'entry') fillColor = 'rgba(78, 204, 163, 0.08)';
   else if (state === 'hover') fillColor = COL.hexHover;
 
   ctx.fillStyle = fillColor;
@@ -656,20 +684,22 @@ function drawHex(cell, state) {
   // Stroke
   let strokeColor = COL.hexStroke;
   if (state === 'entry') strokeColor = COL.hexEntry;
-  else if (state === 'selected') strokeColor = '#ff6b81';
-  else if (state === 'correct') strokeColor = '#6fffe9';
+  else if (state === 'selected') strokeColor = 'rgba(233, 69, 96, 0.5)';
+  else if (state === 'correct') strokeColor = 'rgba(78, 204, 163, 0.5)';
 
   ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = state === 'entry' ? 3 : 2;
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
   // Word text
   const wordClass = WORD_CLASS[cell.word];
   const textY = wordClass ? cell.cy - 5 : cell.cy;
+  const fontFamily = "'Inter', 'SF Pro Display', system-ui, sans-serif";
 
   ctx.fillStyle = state === 'selected' || state === 'correct' || state === 'wrong'
     ? COL.textSelected : COL.textNormal;
-  ctx.font = `${cell.word.length > 9 ? 11 : cell.word.length > 7 ? 13 : 15}px 'Segoe UI', sans-serif`;
+  const fontSize = cell.word.length > 9 ? 10 : cell.word.length > 7 ? 12 : 13;
+  ctx.font = `500 ${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(cell.word, cell.cx, textY);
@@ -677,9 +707,9 @@ function drawHex(cell, state) {
   // Word class label (small italic, only for ambiguous words)
   if (wordClass) {
     ctx.fillStyle = state === 'selected' || state === 'correct' || state === 'wrong'
-      ? 'rgba(255,255,255,0.5)' : 'rgba(180,180,180,0.45)';
-    ctx.font = "italic 9px 'Segoe UI', sans-serif";
-    ctx.fillText(wordClass, cell.cx, textY + 16);
+      ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)';
+    ctx.font = `italic 8px ${fontFamily}`;
+    ctx.fillText(wordClass, cell.cx, textY + 15);
   }
 }
 
@@ -708,9 +738,10 @@ function draw() {
   // Draw path lines between selected cells
   if (selectedPath.length > 1) {
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(233, 69, 96, 0.5)';
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(233, 69, 96, 0.25)';
+    ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     const first = grid[selectedPath[0].row][selectedPath[0].col];
     ctx.moveTo(first.cx, first.cy);
     for (let i = 1; i < selectedPath.length; i++) {
