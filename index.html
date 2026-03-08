@@ -284,6 +284,51 @@ const WORDS = {
 };
 
 // ============================================================
+// WORD CLASS ANNOTATIONS
+// Only for words whose stress pattern changes with word class.
+// The label shown matches the word class implied by the stress
+// pattern the word is filed under.
+// ============================================================
+const WORD_CLASS = {
+  // "10" list — first-syllable stress = noun form
+  "compound":  "n.",
+  "conflict":  "n.",
+  "contrast":  "n.",
+  "convert":   "n.",
+  "process":   "n.",
+  "project":   "n.",
+  "prospect":  "n.",
+  "research":  "n.",
+  "survey":    "n.",
+  // "01" list — second-syllable stress = verb form
+  "conduct":   "v.",
+  "export":    "v.",
+  "exploit":   "v.",
+  "extract":   "v.",
+  "incline":   "v.",
+  "insert":    "v.",
+  "reject":    "v.",
+  "transfer":  "v.",
+  "transport": "v.",
+  // "01" list — second-syllable stress = adjective form
+  "complex":   "adj.",
+  "distinct":  "adj.",
+  "diverse":   "adj.",
+  "intense":   "adj.",
+  "mature":    "adj.",
+  "precise":   "adj.",
+  "secure":    "adj.",
+  // "100" list — first-syllable stress = noun form
+  "overlap":    "n.",
+  "supplement": "n.",
+  "estimate":   "n.",
+  "aggregate":  "n.",
+  "complement": "n.",
+  "document":   "n.",
+  "register":   "n.",
+};
+
+// ============================================================
 // GAME CONFIG
 // ============================================================
 const COLS = 5;
@@ -619,12 +664,23 @@ function drawHex(cell, state) {
   ctx.stroke();
 
   // Word text
+  const wordClass = WORD_CLASS[cell.word];
+  const textY = wordClass ? cell.cy - 5 : cell.cy;
+
   ctx.fillStyle = state === 'selected' || state === 'correct' || state === 'wrong'
     ? COL.textSelected : COL.textNormal;
   ctx.font = `${cell.word.length > 9 ? 11 : cell.word.length > 7 ? 13 : 15}px 'Segoe UI', sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(cell.word, cell.cx, cell.cy);
+  ctx.fillText(cell.word, cell.cx, textY);
+
+  // Word class label (small italic, only for ambiguous words)
+  if (wordClass) {
+    ctx.fillStyle = state === 'selected' || state === 'correct' || state === 'wrong'
+      ? 'rgba(255,255,255,0.5)' : 'rgba(180,180,180,0.45)';
+    ctx.font = "italic 9px 'Segoe UI', sans-serif";
+    ctx.fillText(wordClass, cell.cx, textY + 16);
+  }
 }
 
 function draw() {
