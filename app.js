@@ -993,14 +993,14 @@ function checkWin() {
   if (allCorrect) {
     score++;
     updateScore();
-    setMessage('Correct! Well done!', 'correct');
+    setMessage('Correct! Well done! Press "New Maze" to continue.', 'correct');
 
     // Highlight path green
     for (const p of selectedPath) {
       grid[p.row][p.col].showCorrect = true;
     }
   } else {
-    setMessage('Not quite! Follow the full green chain to the exit.', 'incorrect');
+    setMessage('Not quite! Follow the full green chain to the exit. Press "New Maze" to try again.', 'incorrect');
     const correctPathSet = new Set(correctPath.map(p => cellKey(p.row, p.col)));
 
     // Show selected cells that are not part of the solution as wrong.
@@ -1019,12 +1019,6 @@ function checkWin() {
   }
 
   draw();
-
-  // Auto-advance after delay
-  autoAdvanceTimer = setTimeout(() => {
-    autoAdvanceTimer = null;
-    generateMaze();
-  }, 2500);
 }
 
 function undo() {
